@@ -5,12 +5,18 @@
 
 set -e
 
-projects='nova glance keystone tempest \
-    python-novaclient python-keystoneclient python-glanceclient'
+apts='libsqlite3-dev'
 
-virtualenv .venv
+sudo apt-get install $apts
+
+projects='keystone python-novaclient python-keystoneclient python-glanceclient nova glance tempest'
+
+if [ ! -e .venv ]; then
+    virtualenv .venv
+fi
 source .venv/bin/activate
 
+> pips.txt
 for project in $projects; do
 
     if [ ! -d $project ]; then
@@ -19,15 +25,24 @@ for project in $projects; do
 
     cd $project
 
-    if [ -e tools/pip-requires ]; then
-        pip install -r tools/pip-requires -r tools/test-requires
-    else
-        pip install -r requirements.txt -r test-requirements.txt
-    fi
-
+    set +e
+    max_attemp=0
+    while [ "$max_attemp" -le 5 ]
+    do
+        max_attemp=$(($max_attemp + 1))
+        echo "Try times: $max_attemp. "
+        if [ -e 'requirements.txt' ]; then
+            pip install -r 'requirements.txt'
+            pip install -r 'test-requirements.txt'
+        else
+            pip install -r tools/pip-requires
+            pip install -r tools/test-requires
+        fi
+    done
+    set -e
     cd ..
 done
 
-echo '-------------'
-pip freeze
-echo '-------------'
+pip freeze >> pips.txt
+
+cat pips.txt |awk -F "==" '{print $1}'
